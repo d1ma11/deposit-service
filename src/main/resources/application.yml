@@ -1,6 +1,3 @@
-server:
-  port: 8083
-
 spring:
   application:
     name: deposit-service
@@ -29,6 +26,8 @@ app:
   deposit:
     base_rate: 5
   sms:
-    confirmation_code: 1337
+    request_confirmation_code: 1337
+    deposit_confirmation_code: 4848
 
-#  name of account microservice to use in interaction with deposit microservice
+server:
+  port: 8083

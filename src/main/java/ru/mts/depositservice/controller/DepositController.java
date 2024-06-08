@@ -6,10 +6,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import ru.mts.depositservice.entity.Deposit;
 import ru.mts.depositservice.entity.Request;
-import ru.mts.depositservice.model.DepositAccountResponse;
-import ru.mts.depositservice.model.OpenDepositRequest;
-import ru.mts.depositservice.model.RefillDepositRequest;
-import ru.mts.depositservice.model.RequestResponse;
+import ru.mts.depositservice.model.*;
 import ru.mts.depositservice.service.DepositService;
 import ru.mts.depositservice.service.RequestConfirmationService;
 import ru.mts.depositservice.service.RequestService;
@@ -28,27 +25,26 @@ public class DepositController {
 
     @GetMapping("/check")
     public ResponseEntity<BigDecimal> checkDepositTerms(@RequestBody OpenDepositRequest request) {
-
         BigDecimal rate = depositService.calculateInterestRate(request);
 
         return ResponseEntity.ok(rate);
     }
 
-    @PostMapping
+    @PostMapping("/open")
     @ResponseStatus(HttpStatus.OK)
-    public void applicationForOpeningDeposit(@RequestBody OpenDepositRequest openDepositRequest) {
-        requestService.makeRequest(openDepositRequest);
+    public void requestForOpeningDeposit(@RequestBody OpenDepositRequest openDepositRequest) {
+        requestService.openRequest(openDepositRequest);
     }
 
-    @PostMapping("/confirm")
-    public ResponseEntity<RequestResponse> confirmDepositRequest(@RequestBody OpenDepositRequest openDepositRequest) {
-        RequestResponse response = confirmationService.confirmRequest(openDepositRequest);
+    @PostMapping("/open/confirm")
+    public ResponseEntity<RequestResponse> confirmRequestOpenDeposit(@RequestBody OpenDepositRequest openDepositRequest) {
+        RequestResponse response = confirmationService.confirmOpenRequest(openDepositRequest);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{customerId}")
-    public ResponseEntity<DepositAccountResponse> checkDepositsAndRequests(@PathVariable Integer customerId) {
+    public ResponseEntity<DepositAccountResponse> showDepositsAndRejectedRequests(@PathVariable Integer customerId) {
         DepositAccountResponse depositAccountResponse = new DepositAccountResponse();
 
         List<Request> requests = requestService.findRejectedRequests(customerId);
@@ -60,9 +56,28 @@ public class DepositController {
         return new ResponseEntity<>(depositAccountResponse, HttpStatus.FOUND);
     }
 
-    @PostMapping("/refill")
-    @ResponseStatus(HttpStatus.OK)
-    public void refillDepositAccount(@RequestBody RefillDepositRequest request) {
-        depositService.refillAccount(request);
+    @GetMapping("/refill")
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public void requestRefillDepositAccount() {
+        requestService.refillRequest();
+    }
+
+    @PostMapping("/refill/confirm")
+    public ResponseEntity<RequestResponse> refillDepositAccount(@RequestBody RefillDepositRequest request) {
+        RequestResponse response = confirmationService.confirmRefillDeposit(request);
+
+        return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
+    }
+
+    @GetMapping("/close")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void applicationForClosingDepositAccount() {
+        requestService.closeRequest();
+    }
+
+    @PostMapping("/close/confirm")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void confirmCloseDeposit(@RequestBody CloseDepositRequest request) {
+        confirmationService.confirmCloseDeposit(request);
     }
 }

@@ -18,6 +18,6 @@ public class OpenDepositRequest extends DepositRequest {
     private Integer customerId;
     private DepositTypeEnum depositType;
     private DepositDurationEnum duration;
-    private boolean isCapitalized;
+    private Boolean isCapitalized;
     private PercentPaymentTypeEnum percentPaymentType;
 }

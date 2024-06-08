@@ -1,6 +1,5 @@
 package ru.mts.depositservice.client;
 
-
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cloud.client.ServiceInstance;
@@ -13,7 +12,6 @@ import ru.mts.depositservice.entity.BankAccount;
 import ru.mts.depositservice.entity.Customer;
 import ru.mts.depositservice.entity.Request;
 import ru.mts.depositservice.model.DepositRequest;
-import ru.mts.depositservice.model.OpenDepositRequest;
 import ru.mts.depositservice.model.InfoResponse;
 import ru.mts.depositservice.model.UserRequest;
 import ru.mts.depositservice.repository.RequestRepository;
@@ -29,7 +27,7 @@ public class AccountClient {
     private static final String CHECK_ENOUGH_MONEY = "/account/check";
     private static final String GET_ACCOUNT_MONEY = "/account/{accountId}";
     private static final String WITHDRAW_MONEY = "/account/withdraw";
-    private static final String REFILL_MONEY = "/account/topUp";
+    private static final String REFILL_MONEY = "/account/refill";
 
     private final RestTemplate restTemplate;
     private final CustomerClient customerClient;
@@ -48,16 +46,9 @@ public class AccountClient {
 
     public boolean checkEnoughMoney(DepositRequest depositRequest) {
         Request request = requestRepository.findById(depositRequest.getRequestId()).get();
-        Customer customer = customerClient.findCustomer(request.getCustomerId().getId());
-        BigDecimal depositAmount;
+        Customer customer = customerClient.findCustomer(request.getCustomer().getId());
 
-        if (depositRequest.getDepositAmount().compareTo(BigDecimal.valueOf(10_000)) <= 0) {
-            depositAmount = BigDecimal.valueOf(10_000);
-        } else {
-            depositAmount = depositRequest.getDepositAmount();
-        }
-
-        UserRequest userRequest = createUserRequest(customer.getBankAccount().getId(), depositAmount);
+        UserRequest userRequest = createUserRequest(customer.getBankAccount().getId(), request.getAmount());
 
         ResponseEntity<Boolean> response = restTemplate.postForEntity(
                 buildUri(CHECK_ENOUGH_MONEY),
@@ -79,17 +70,19 @@ public class AccountClient {
         return Objects.requireNonNull(response.getBody()).getAmount();
     }
 
-    public void withdrawMoneyFromAccount(OpenDepositRequest openDepositRequest) {
-        executePatchRequest(WITHDRAW_MONEY, openDepositRequest);
+    public void withdrawMoneyFromAccount(DepositRequest depositRequest) {
+        executePatchRequest(WITHDRAW_MONEY, depositRequest);
     }
 
-    public void refillAccount(OpenDepositRequest openDepositRequest) {
-        executePatchRequest(REFILL_MONEY, openDepositRequest);
+    public void refillAccount(DepositRequest depositRequest) {
+        executePatchRequest(REFILL_MONEY, depositRequest);
     }
 
-    private void executePatchRequest(String endpointPath, OpenDepositRequest openDepositRequest) {
-        BankAccount bankAccount = customerClient.findCustomer(openDepositRequest.getCustomerId()).getBankAccount();
-        UserRequest userRequest = createUserRequest(bankAccount.getId(), openDepositRequest.getDepositAmount());
+    private void executePatchRequest(String endpointPath, DepositRequest depositRequest) {
+        Request request = requestRepository.findById(depositRequest.getRequestId()).get();
+        Customer customer = customerClient.findCustomer(request.getCustomer().getId());
+        BankAccount bankAccount = customerClient.findCustomer(customer.getId()).getBankAccount();
+        UserRequest userRequest = createUserRequest(bankAccount.getId(), depositRequest.getDepositAmount());
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);

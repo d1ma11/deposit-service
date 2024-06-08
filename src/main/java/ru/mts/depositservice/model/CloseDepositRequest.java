@@ -9,5 +9,6 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 @NoArgsConstructor
 @EqualsAndHashCode(callSuper = true)
-public class RefillDepositRequest extends DepositRequest {
+public class CloseDepositRequest extends DepositRequest {
+    private Integer customerId;
 }

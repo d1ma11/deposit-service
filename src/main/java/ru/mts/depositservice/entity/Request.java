@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 @Data
@@ -22,11 +23,14 @@ public class Request {
     @Column(name = "request_date")
     private Date requestDate;
 
+    @Column(name = "deposit_amount")
+    private BigDecimal amount;
+
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "customer_id")
-    private Customer customerId;
+    private Customer customer;
 
     @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "deposit_id")
-    private Deposit depositId;
+    private Deposit deposit;
 }

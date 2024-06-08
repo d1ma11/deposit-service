@@ -1,0 +1,4 @@
+INSERT INTO deposit_types (deposit_type_name)
+VALUES ('DEPOSITS_AND_WITHDRAWALS'),
+       ('DEPOSITS_AND_NO_WITHDRAWALS'),
+       ('NO_DEPOSITS_AND_WITHDRAWALS');

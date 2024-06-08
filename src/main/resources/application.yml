@@ -1,0 +1,34 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: deposit-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/diplom
+    username: postgres
+    password: 1234567890
+    driver-class-name: org.postgresql.Driver
+
+  flyway:
+    user: postgres
+    password: 1234567890
+    default-schema: public
+    locations: classpath:/db/migration
+    baseline-on-migrate: true
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    instance-id: ${spring.application.name}
+
+app:
+  deposit:
+    base_rate: 5
+  sms:
+    confirmation_code: 1337
+
+#  name of account microservice to use in interaction with deposit microservice

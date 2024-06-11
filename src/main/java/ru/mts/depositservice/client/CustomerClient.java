@@ -24,13 +24,19 @@ public class CustomerClient {
     private ServiceInstance serviceInstance;
 
     @PostConstruct
-    public void init() {
+    void init() {
         serviceInstance = discoveryClient.getInstances(CUSTOMER_SERVICE_NAME)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException(CUSTOMER_SERVICE_NAME + " сервис недоступен"));
     }
 
+    /**
+     * Находит клиента по его идентификатору, обращаясь к сервису {@code customer-service}
+     *
+     * @param customerId Идентификатор клиента для поиска.
+     * @return Объект {@link Customer}, найденный по идентификатору
+     */
     public Customer findCustomer(Integer customerId) {
         UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder
                 .fromHttpUrl(serviceInstance.getUri().toString() + FIND_CUSTOMER);

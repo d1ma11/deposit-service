@@ -37,13 +37,19 @@ public class AccountClient {
     private ServiceInstance serviceInstance;
 
     @PostConstruct
-    public void init() {
+    void init() {
         serviceInstance = discoveryClient.getInstances(ACCOUNT_SERVICE_NAME)
                 .stream()
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException(ACCOUNT_SERVICE_NAME + " сервис недоступен"));
     }
 
+    /**
+     * Проверяет, достаточно ли денег на банковском счету клиента для внесения депозита
+     *
+     * @param depositRequest Объект запроса на депозит с идентификатором запроса и суммой депозита
+     * @return {@code true}, если на счету достаточно средств; в противном случае {@code false}
+     */
     public boolean checkEnoughMoney(DepositRequest depositRequest) {
         Request request = requestRepository.findById(depositRequest.getRequestId()).get();
         Customer customer = customerClient.findCustomer(request.getCustomer().getId());
@@ -59,6 +65,12 @@ public class AccountClient {
         return Boolean.TRUE.equals(response.getBody());
     }
 
+    /**
+     * Получает текущий баланс на банковском счету клиента по его идентификатору
+     *
+     * @param customerId Идентификатор клиента
+     * @return Сумма на банковском счету клиента
+     */
     public BigDecimal getAccountMoney(Integer customerId) {
         ResponseEntity<InfoResponse> response = restTemplate.exchange(
                 buildUri(GET_ACCOUNT_MONEY, customerId),
@@ -70,10 +82,20 @@ public class AccountClient {
         return Objects.requireNonNull(response.getBody()).getAmount();
     }
 
+    /**
+     * Выполняет операцию снятия денег со счета клиента
+     *
+     * @param depositRequest Объект запроса на снятие денег с указанием суммы
+     */
     public void withdrawMoneyFromAccount(DepositRequest depositRequest) {
         executePatchRequest(WITHDRAW_MONEY, depositRequest);
     }
 
+    /**
+     * Выполняет операцию пополнения баланса на банковском счету клиента
+     *
+     * @param depositRequest Объект запроса на пополнение баланса с указанием суммы
+     */
     public void refillAccount(DepositRequest depositRequest) {
         executePatchRequest(REFILL_MONEY, depositRequest);
     }

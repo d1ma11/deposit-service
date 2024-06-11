@@ -15,7 +15,9 @@ import ru.mts.depositservice.enums.DepositTypeEnum;
 import ru.mts.depositservice.enums.PercentPaymentTypeEnum;
 import ru.mts.depositservice.exception.DepositNotFoundException;
 import ru.mts.depositservice.exception.MinDepositAmountException;
-import ru.mts.depositservice.model.*;
+import ru.mts.depositservice.exception.RefillDepositException;
+import ru.mts.depositservice.model.OpenDepositRequest;
+import ru.mts.depositservice.model.RefillDepositRequest;
 import ru.mts.depositservice.repository.DepositRepository;
 import ru.mts.depositservice.repository.DepositTypesRepository;
 import ru.mts.depositservice.repository.PercentPaymentTypesRepository;
@@ -41,13 +43,28 @@ public class DepositService {
     private final PercentPaymentTypesRepository percentPaymentTypesRepository;
 
     @Value("${app.deposit.base_rate}")
-    private BigDecimal baseRate;                    // базовая процентная ставка
+    private BigDecimal baseRate;                                                // базовая процентная ставка
 
+    /**
+     * Рассчитывает процентную ставку для вклада.
+     * <p>
+     * Изменяет базовую процентную ставку на основе типа вклада, продолжительности, суммы и капитализации
+     *
+     * @param request Запрос на открытие вклада с информацией для расчёта ставки
+     * @return Расчётная процентная ставка
+     */
     public BigDecimal calculateInterestRate(OpenDepositRequest request) {
         BigDecimal rateAdjustment = BigDecimal.valueOf(adjustBaseRate(request));
         return baseRate.add(rateAdjustment).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Проверяет минимальную сумму вклада.
+     * <p>
+     * Если сумма вклада меньше минимально допустимой, генерируется исключение
+     *
+     * @param depositAmount Сумма вклада для проверки
+     */
     public void validateMinimumDepositAmount(BigDecimal depositAmount) {
         if (depositAmount.compareTo(BigDecimal.valueOf(10_000)) < 0) {
             throw new MinDepositAmountException(
@@ -57,9 +74,17 @@ public class DepositService {
         }
     }
 
+    /**
+     * Открывает новый вклад.
+     * <p>
+     * Создаёт объект депозита, сохраняет его в репозитории и обновляет связанные запросы
+     *
+     * @param openDepositRequest Запрос на открытие вклада
+     */
     public void openDeposit(OpenDepositRequest openDepositRequest) {
         Deposit deposit = new Deposit();
 
+        // Считываем выбор условий открытия вклада от пользователя
         switch (openDepositRequest.getDepositType()) {
             case DEPOSITS_AND_WITHDRAWALS:
                 deposit.setDepositRefill(true);
@@ -75,12 +100,24 @@ public class DepositService {
         Request request = requestRepository.findById(openDepositRequest.getRequestId()).get();
         Customer customer = customerClient.findCustomer(openDepositRequest.getCustomerId());
 
-        deposit.setCapitalization(openDepositRequest.getIsCapitalized());
-        deposit.setDepositAmount(request.getAmount());
-        deposit.setStartDate(LocalDate.now());
-        deposit.setEndDate(deposit.getStartDate().plusMonths(getDepositMonthDuration(openDepositRequest.getDuration())));
-        deposit.setDepositRate(calculateInterestRate(openDepositRequest));
+        // Рассчитываем по выбранным условиям процентную ставку для вклада
+        BigDecimal interestRate = calculateInterestRate(openDepositRequest);
+        // Рассчитываем даты начала и окончания договора вклада
+        LocalDate startDate = LocalDate.now();
+        LocalDate endDate = deposit.getStartDate().plusMonths(getDepositMonthDuration(openDepositRequest.getDuration()));
 
+
+        // Открываем вклад с выбранными условиями
+        deposit.setCapitalization(openDepositRequest.getIsCapitalized());
+
+        deposit.setDepositAmount(request.getAmount());
+        accountClient.withdrawMoneyFromAccount(openDepositRequest);                 // списываем деньги с банковского счета
+
+        deposit.setStartDate(startDate);
+        deposit.setEndDate(endDate);
+        deposit.setDepositRate(interestRate);
+
+        // Если пользователь выбрал капитализацию вклада
         if (!openDepositRequest.getIsCapitalized()) {
             deposit.setPercentPaymentDate(calculatePercentPaymentDate(deposit, openDepositRequest.getPercentPaymentType()));
             deposit.setTypePercentPayment(percentPaymentTypesRepository.findTypesPercentPaymentByTypeName(
@@ -98,16 +135,21 @@ public class DepositService {
 
         depositRepository.save(deposit);
 
-        accountClient.withdrawMoneyFromAccount(openDepositRequest);
-
         request.setDeposit(deposit);
-        requestRepository.save(request);
+        requestRepository.save(request);                                            // связываем заявку с созданным вкладом
     }
 
+    /**
+     * Пополняет существующий вклад.
+     * <p>
+     * Изменяет сумму вклада и процентную ставку, сохраняет изменения в базу данных
+     *
+     * @param refillRequest Запрос на пополнение вклада
+     * @return Обновлённый объект депозита {@link Deposit}
+     */
     @Transactional
     public Deposit refillDeposit(RefillDepositRequest refillRequest) {
         Optional<Request> optionalRequest = requestRepository.findById(refillRequest.getRequestId());
-
         if (optionalRequest.isEmpty()) {
             throw new DepositNotFoundException(
                     "DEPOSIT_NOT_FOUND",
@@ -116,23 +158,39 @@ public class DepositService {
         }
         Deposit deposit = optionalRequest.get().getDeposit();
 
-        BigDecimal currentAmount = deposit.getDepositAmount();                  // текущая сумма денег
-        BigDecimal refillAmount = refillRequest.getDepositAmount();             // сумма для снятия
+        // Проверяем условия вклада - можно ли его пополнить?
+        if (deposit.isDepositRefill()) {
+            BigDecimal currentAmount = deposit.getDepositAmount();                  // текущая сумма денег
+            BigDecimal refillAmount = refillRequest.getDepositAmount();             // сумма для снятия
 
-        accountClient.withdrawMoneyFromAccount(refillRequest);                  // списываем деньги с банковского счета
-        deposit.setDepositAmount(currentAmount.add(refillAmount));              // кладем деньги на вклад
+            accountClient.withdrawMoneyFromAccount(refillRequest);                  // списываем деньги с банковского счета
+            deposit.setDepositAmount(currentAmount.add(refillAmount));              // кладем деньги на вклад
 
-        BigDecimal currentDepositRate = deposit.getDepositRate();               // текущая процентная ставка
-        BigDecimal adjustedDepositRate =                                        // измененная процентная ставка
-                BigDecimal.valueOf(
-                        calculateAmountBasedAdjustment(
-                                currentAmount.add(refillAmount))
-                );
-        deposit.setDepositRate(currentDepositRate.add(adjustedDepositRate));    // присваиваем новую процентную ставку
+            BigDecimal currentDepositRate = deposit.getDepositRate();               // текущая процентная ставка
+            BigDecimal adjustedDepositRate =                                        // измененная процентная ставка
+                    BigDecimal.valueOf(
+                            calculateAmountBasedAdjustment(
+                                    currentAmount.add(refillAmount))
+                    );
+            deposit.setDepositRate(currentDepositRate.add(adjustedDepositRate));    // присваиваем новую процентную ставку
 
-        return depositRepository.save(deposit);
+            return depositRepository.save(deposit);
+        }
+
+        throw new RefillDepositException(
+                "REFILL_DEPOSIT_ERROR",
+                "Условия вашего вклада не подразумевают его пополнение!"
+        );
     }
 
+    /**
+     * Найдет все открытые вклады для определённого клиента.
+     * <p>
+     * Возвращает список всех открытых вкладов для указанного клиента
+     *
+     * @param customerId Идентификатор клиента
+     * @return Список открытых вкладов
+     */
     public List<Deposit> findOpenedDeposits(Integer customerId) {
         Customer customer = customerClient.findCustomer(customerId);
         return depositRepository.findDepositsByCustomer(customer);

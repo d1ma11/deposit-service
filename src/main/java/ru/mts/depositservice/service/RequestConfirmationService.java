@@ -33,25 +33,33 @@ public class RequestConfirmationService {
     private final RequestStatusService requestStatusService;
     private final RequestStatusRepository requestStatusRepository;
 
+    /**
+     * Подтверждает заявку на открытие депозита.
+     * <p>
+     * Проверяет наличие заявки, корректность кода подтверждения, достаточность средств на счете клиента и изменяет статус заявки соответственно
+     *
+     * @param openRequest Объект запроса на открытие депозита с подтверждающим кодом
+     * @return Ответ на процесс подтверждения заявки {@link RequestResponse}
+     */
     @Transactional
-    public RequestResponse confirmOpenRequest(OpenDepositRequest openDepositRequest) {
-        String confirmationCode = requestService.getOpenConfirmationCode();
-
-        Optional<Request> optionalRequest = requestRepository.findById(openDepositRequest.getRequestId());
-        if (optionalRequest.isEmpty()) {
+    public RequestResponse confirmOpenRequest(OpenDepositRequest openRequest) {
+        // Находим заявку в базе данных
+        Optional<Request> optionalConfirmingRequest = requestRepository.findById(openRequest.getRequestId());
+        if (optionalConfirmingRequest.isEmpty()) {
             throw new RequestNotFoundException(
                     "REQUEST_NOT_FOUND",
-                    "Заявка с идентификатором " + openDepositRequest.getRequestId() + " не найдена!"
+                    "Заявка с идентификатором " + openRequest.getRequestId() + " не найдена!"
             );
         }
+        Request confirmingRequest = optionalConfirmingRequest.get();
 
-        Request request = optionalRequest.get();
-        openDepositRequest.setDepositAmount(request.getAmount());
+        // Устанавливаем сумму в DTO заявке ту, которую пользователь указывал при создании заявки на открытие вклада
+        openRequest.setDepositAmount(confirmingRequest.getAmount());
 
-        if (openDepositRequest.getConfirmationCode().equals(confirmationCode)) {
+        // Проверяем код подтверждения на правильность
+        if (openRequest.getConfirmationCode().equals(requestService.getOpenConfirmationCode())) {
             RequestStatus confirmedStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.CONFIRMED);
-
-            requestStatusService.changeCurrentRequestStatus(request, confirmedStatus);
+            requestStatusService.changeCurrentRequestStatus(confirmingRequest, confirmedStatus);    // меняем статус заявки на "ПОДТВЕРЖДЕНО"
         } else {
             throw new InvalidConfirmationCodeException(
                     "INVALID_SMS_CODE",
@@ -59,32 +67,45 @@ public class RequestConfirmationService {
             );
         }
 
-        if (accountClient.checkEnoughMoney(openDepositRequest)) {
-            RequestStatus approvedStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.APPROVED);
-            requestStatusService.changeCurrentRequestStatus(request, approvedStatus);
+        // Проверяем лежит ли необходимая сумма на банковском счете клиента
+        if (accountClient.checkEnoughMoney(openRequest)) {
+            RequestStatus approvedStatus = requestStatusRepository
+                    .findRequestStatusByStatusName(RequestStatusEnum.APPROVED);
+            requestStatusService.changeCurrentRequestStatus(confirmingRequest, approvedStatus);     // меняем статус заявки на "ОДОБРЕНО"
 
-            depositService.openDeposit(openDepositRequest);
+            depositService.openDeposit(openRequest);                                                // открываем вклад
 
             return ApprovedRequestResponse.builder()
-                    .requestId(openDepositRequest.getRequestId())
-                    .depositTypeEnum(openDepositRequest.getDepositType())
-                    .amount(request.getAmount())
-                    .requestDate(request.getRequestDate())
-                    .percentageRate(depositService.calculateInterestRate(openDepositRequest))
+                    .requestId(openRequest.getRequestId())
+                    .depositTypeEnum(openRequest.getDepositType())
+                    .amount(confirmingRequest.getAmount())
+                    .requestDate(confirmingRequest.getRequestDate())
+                    .percentageRate(depositService.calculateInterestRate(openRequest))
                     .build();
         }
+
+        // При отсутствии необходимой суммы на банковском счете клиента
         RequestStatus rejectedStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.REJECTED);
-        requestStatusService.changeCurrentRequestStatus(request, rejectedStatus);
+        requestStatusService.changeCurrentRequestStatus(confirmingRequest, rejectedStatus);         // меняем статус заявки на "ОТКЛОНЕНО"
 
         return RejectedRequestResponse.builder()
-                .amount(accountClient.getAccountMoney(openDepositRequest.getCustomerId()))
-                .requestDate(request.getRequestDate())
+                .amount(accountClient.getAccountMoney(openRequest.getCustomerId()))
+                .requestDate(confirmingRequest.getRequestDate())
                 .rejectionReason(REJECTION_REASON)
                 .build();
     }
 
+    /**
+     * Подтверждает заявку на пополнение депозита.
+     * <p>
+     * Проверяет корректность кода подтверждения и достаточность средств на счете клиента, затем выполняет пополнение депозита
+     *
+     * @param refillRequest Объект запроса на пополнение депозита с подтверждающим кодом
+     * @return Ответ на процесс подтверждения заявки {@link RequestResponse}
+     */
     @Transactional
     public RequestResponse confirmRefillDeposit(RefillDepositRequest refillRequest) {
+        // Проверяем код подтверждения на правильность
         if (!refillRequest.getConfirmationCode().equals(requestService.getRefillConfirmationCode())) {
             throw new InvalidConfirmationCodeException(
                     "INVALID_SMS_CODE",
@@ -94,7 +115,7 @@ public class RequestConfirmationService {
 
         // Проверяем есть ли необходимая сумма денег на счету
         if (accountClient.checkEnoughMoney(refillRequest)) {
-            Deposit deposit = depositService.refillDeposit(refillRequest);
+            Deposit deposit = depositService.refillDeposit(refillRequest);                          // пополнение вклада
 
             return RequestResponse.builder()
                     .requestDate(new Date())
@@ -109,8 +130,15 @@ public class RequestConfirmationService {
                 .build();
     }
 
+    /**
+     * Подтверждает заявку на закрытие депозита
+     * <p>
+     * Проверяет корректность кода подтверждения и находит соответствующую заявку в базе данных,
+     * после чего закрывает депозит
+     */
     @Transactional
     public void confirmCloseDeposit(CloseDepositRequest closeRequest) {
+        // Проверяем код подтверждения на правильность
         if (!closeRequest.getConfirmationCode().equals(requestService.getCloseConfirmationCode())) {
             throw new InvalidConfirmationCodeException(
                     "INVALID_SMS_CODE",
@@ -118,6 +146,7 @@ public class RequestConfirmationService {
             );
         }
 
+        // Находим заявку в базе данных
         Optional<Request> optionalRequest = requestRepository.findById(closeRequest.getRequestId());
 
         if (optionalRequest.isEmpty()) {
@@ -128,12 +157,10 @@ public class RequestConfirmationService {
         }
         Request request = optionalRequest.get();
 
-        Deposit deposit = request.getDeposit();                                         // находим счет вклада
-        closeRequest.setDepositAmount(deposit.getDepositAmount());                      // в запросе пишем, что снимаем все деньги
-        accountClient.refillAccount(closeRequest);                                      // выполняется запрос на снятие денег
-        depositRepository.delete(deposit);                                              // закрывается счет вклада
-
-        RequestStatus confirmedStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.CONFIRMED);
-        requestStatusService.changeCurrentRequestStatus(request, confirmedStatus);
+        // Закрываем вклад
+        Deposit deposit = request.getDeposit();                                                     // находим счет вклада
+        closeRequest.setDepositAmount(deposit.getDepositAmount());                                  // в запросе пишем, что снимаем все деньги
+        accountClient.refillAccount(closeRequest);                                                  // выполняется запрос на снятие денег
+        depositRepository.delete(deposit);                                                          // закрывается счет вклада
     }
 }

@@ -14,7 +14,7 @@ public class SmsConfirmationServiceImpl implements ConfirmationService {
 
     @Override
     public String generateVerificationCode() {
-        int randomNumber = random.nextInt(10000);
+        int randomNumber = random.nextInt(10_000);
         return String.format("%04d", randomNumber);
     }
 }

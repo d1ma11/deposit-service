@@ -9,8 +9,15 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 @RequiredArgsConstructor
 public class AppConfig {
+    /**
+     * Создает и настраивает бин {@link RestTemplate} с использованием {@link HttpComponentsClientHttpRequestFactory}
+     * <p>
+     * Используется для выполнения HTTP-запросов к внешним сервисам
+     *
+     * @return Бин {@link RestTemplate}, настроенный для выполнения HTTP-запросов
+     */
     @Bean
-    public RestTemplate restTemplate() {
+    RestTemplate restTemplate() {
         RestTemplate restTemplate = new RestTemplate();
         HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory();
         restTemplate.setRequestFactory(requestFactory);

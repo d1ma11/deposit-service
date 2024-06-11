@@ -17,6 +17,14 @@ public class RequestStatusService {
 
     private final CurrentRequestStatusRepository currentRequestStatusRepository;
 
+    /**
+     * Изменяет текущий статус запроса.
+     * <p>
+     * Метод используется для обновления статуса запроса на новый, сохраняя историю изменений статуса запроса
+     *
+     * @param request Запрос, статус которого нужно изменить
+     * @param status  Новый статус запроса
+     */
     @Transactional
     public void changeCurrentRequestStatus(Request request, RequestStatus status) {
         CurrentRequestStatus currentRequestStatus = new CurrentRequestStatus();

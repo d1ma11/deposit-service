@@ -1,8 +1,8 @@
 package ru.mts.depositservice.enums;
 
 public enum RequestStatusEnum {
-    CONFIRMING,
-    CONFIRMED,
-    APPROVED,
-    REJECTED
+    CONFIRMING,     // на подтверждении
+    CONFIRMED,      // подтверждено
+    APPROVED,       // одобрено
+    REJECTED        // отклонено
 }

@@ -25,9 +25,6 @@ eureka:
 app:
   deposit:
     base_rate: 5
-  sms:
-    request_confirmation_code: 1337
-    deposit_confirmation_code: 4848
 
 server:
   port: 8083

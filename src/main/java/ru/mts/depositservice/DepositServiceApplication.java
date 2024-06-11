@@ -8,8 +8,8 @@ import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 @SpringBootApplication
 public class DepositServiceApplication {
 
-	public static void main(String[] args) {
-		SpringApplication.run(DepositServiceApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(DepositServiceApplication.class, args);
+    }
 
 }

@@ -1,6 +1,6 @@
 package ru.mts.depositservice.enums;
 
 public enum PercentPaymentTypeEnum {
-    MONTHLY,
-    END_OF_TERM
+    MONTHLY,        // ежемесячно
+    END_OF_TERM     // в конце периода
 }

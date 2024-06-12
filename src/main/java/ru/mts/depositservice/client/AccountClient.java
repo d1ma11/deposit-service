@@ -6,11 +6,13 @@ import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import ru.mts.depositservice.entity.BankAccount;
 import ru.mts.depositservice.entity.Customer;
 import ru.mts.depositservice.entity.Request;
+import ru.mts.depositservice.exception.CustomException;
 import ru.mts.depositservice.model.DepositRequest;
 import ru.mts.depositservice.model.InfoResponse;
 import ru.mts.depositservice.model.UserRequest;
@@ -111,12 +113,21 @@ public class AccountClient {
 
         HttpEntity<UserRequest> requestEntity = new HttpEntity<>(userRequest, headers);
 
-        restTemplate.exchange(
-                buildUri(endpointPath),
-                HttpMethod.PATCH,
-                requestEntity,
-                InfoResponse.class
-        );
+        try {
+            restTemplate.exchange(
+                    buildUri(endpointPath),
+                    HttpMethod.PATCH,
+                    requestEntity,
+                    InfoResponse.class
+            );
+        } catch (HttpClientErrorException e) {
+            if (e.getStatusCode()== HttpStatus.BAD_REQUEST) {
+                throw new CustomException(
+                        e.getStatusCode().toString(),
+                        e.getMessage()
+                );
+            }
+        }
     }
 
     private String buildUri(String endpointPath, Object... uriVariables) {

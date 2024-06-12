@@ -27,7 +27,11 @@ public class ControllerExceptionHandler extends ResponseEntityExceptionHandler {
         ExceptionResponse<ExceptionData> exceptionResponse =
                 new ExceptionResponse<>(new ExceptionData(e.getCode(), e.getMessage()));
 
-        log.error("Произошла ошибка: {}", e.getMessage());
+        log.error("Произошла ошибка: {}, Код ошибки: {}, Сообщение ошибки: {}",
+                e.getClass().getSimpleName(),
+                e.getCode(),
+                e.getMessage()
+        );
 
         return new ResponseEntity<>(exceptionResponse, HttpStatus.BAD_REQUEST);
     }

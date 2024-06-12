@@ -32,6 +32,7 @@ public class RequestConfirmationService {
     private final RequestRepository requestRepository;
     private final RequestStatusService requestStatusService;
     private final RequestStatusRepository requestStatusRepository;
+    private final SmsConfirmationServiceImpl smsConfirmationService;
 
     /**
      * Подтверждает заявку на открытие депозита.
@@ -57,7 +58,7 @@ public class RequestConfirmationService {
         openRequest.setDepositAmount(confirmingRequest.getAmount());
 
         // Проверяем код подтверждения на правильность
-        if (openRequest.getConfirmationCode().equals(requestService.getOpenConfirmationCode())) {
+        if (openRequest.getConfirmationCode().equals(smsConfirmationService.getOpenConfirmationCode())) {
             RequestStatus confirmedStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.CONFIRMED);
             requestStatusService.changeCurrentRequestStatus(confirmingRequest, confirmedStatus);    // меняем статус заявки на "ПОДТВЕРЖДЕНО"
         } else {
@@ -106,7 +107,7 @@ public class RequestConfirmationService {
     @Transactional
     public RequestResponse confirmRefillDeposit(RefillDepositRequest refillRequest) {
         // Проверяем код подтверждения на правильность
-        if (!refillRequest.getConfirmationCode().equals(requestService.getRefillConfirmationCode())) {
+        if (!refillRequest.getConfirmationCode().equals(smsConfirmationService.getRefillConfirmationCode())) {
             throw new InvalidConfirmationCodeException(
                     "INVALID_SMS_CODE",
                     "Неправильный код подтверждения!"
@@ -139,7 +140,7 @@ public class RequestConfirmationService {
     @Transactional
     public void confirmCloseDeposit(CloseDepositRequest closeRequest) {
         // Проверяем код подтверждения на правильность
-        if (!closeRequest.getConfirmationCode().equals(requestService.getCloseConfirmationCode())) {
+        if (!closeRequest.getConfirmationCode().equals(smsConfirmationService.getCloseConfirmationCode())) {
             throw new InvalidConfirmationCodeException(
                     "INVALID_SMS_CODE",
                     "Неправильный код подтверждения!"

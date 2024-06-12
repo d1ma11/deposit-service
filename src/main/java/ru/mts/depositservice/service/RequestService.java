@@ -21,17 +21,13 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RequestService {
 
-    private static String OPEN_CONFIRMATION_CODE;                                       // код подтверждения для открытия заявки
-    private static String CLOSE_CONFIRMATION_CODE;                                      // код подтверждения для закрытия заявки
-    private static String REFILL_CONFIRMATION_CODE;                                     // код подтверждения для пополнения заявки
-
     private final DepositService depositService;
 
     private final CustomerClient customerClient;
     private final RequestRepository requestRepository;
+    private final RequestStatusService requestStatusService;
     private final RequestStatusRepository requestStatusRepository;
     private final SmsConfirmationServiceImpl smsConfirmationService;
-    private final RequestStatusService requestStatusService;
 
     /**
      * Открывает заявку на новый депозит
@@ -47,8 +43,9 @@ public class RequestService {
         depositService.validateMinimumDepositAmount(openDepositRequest.getDepositAmount());
 
         // Генерируем код подтверждения для открытия вклада
-        OPEN_CONFIRMATION_CODE = smsConfirmationService.generateVerificationCode();
-        log.info("Код {} для операции открытия вклада", OPEN_CONFIRMATION_CODE);
+        String openConfirmationCode = smsConfirmationService.generateVerificationCode();
+        smsConfirmationService.setOpenConfirmationCode(openConfirmationCode);
+        log.info("Код {} для операции открытия вклада", openConfirmationCode);
 
         RequestStatus confirmingStatus = requestStatusRepository.findRequestStatusByStatusName(RequestStatusEnum.CONFIRMING);
         Customer customer = customerClient.findCustomer(openDepositRequest.getCustomerId());
@@ -68,16 +65,18 @@ public class RequestService {
      * Генерирует код подтверждения для операции пополнения вклада
      */
     public void refillRequest() {
-        REFILL_CONFIRMATION_CODE = smsConfirmationService.generateVerificationCode();
-        log.info("Код {} для операции пополнения вклада", REFILL_CONFIRMATION_CODE);
+        String refillConfirmationCode = smsConfirmationService.generateVerificationCode();
+        smsConfirmationService.setRefillConfirmationCode(refillConfirmationCode);
+        log.info("Код {} для операции пополнения вклада", refillConfirmationCode);
     }
 
     /**
      * Генерирует код подтверждения для операции закрытия вклада
      */
     public void closeRequest() {
-        CLOSE_CONFIRMATION_CODE = smsConfirmationService.generateVerificationCode();
-        log.info("Код {} для операции закрытия вклада", CLOSE_CONFIRMATION_CODE);
+        String closeConfirmationCode = smsConfirmationService.generateVerificationCode();
+        smsConfirmationService.setCloseConfirmationCode(closeConfirmationCode);
+        log.info("Код {} для операции закрытия вклада", closeConfirmationCode);
     }
 
     /**
@@ -88,32 +87,5 @@ public class RequestService {
      */
     public List<Request> findRejectedRequests(Integer customerId) {
         return requestRepository.findRequestsByCustomerId(customerId);
-    }
-
-    /**
-     * Возвращает код подтверждения для операции открытия вклада
-     *
-     * @return Код подтверждения.
-     */
-    public String getOpenConfirmationCode() {
-        return OPEN_CONFIRMATION_CODE;
-    }
-
-    /**
-     * Возвращает код подтверждения для операции пополнения вклада
-     *
-     * @return Код подтверждения.
-     */
-    public String getRefillConfirmationCode() {
-        return REFILL_CONFIRMATION_CODE;
-    }
-
-    /**
-     * Возвращает код подтверждения для операции закрытия вклада
-     *
-     * @return Код подтверждения
-     */
-    public String getCloseConfirmationCode() {
-        return CLOSE_CONFIRMATION_CODE;
     }
 }

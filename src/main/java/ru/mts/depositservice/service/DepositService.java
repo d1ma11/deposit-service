@@ -18,6 +18,7 @@ import ru.mts.depositservice.exception.MinDepositAmountException;
 import ru.mts.depositservice.exception.RefillDepositException;
 import ru.mts.depositservice.model.OpenDepositRequest;
 import ru.mts.depositservice.model.RefillDepositRequest;
+import ru.mts.depositservice.property.DepositProperty;
 import ru.mts.depositservice.repository.DepositRepository;
 import ru.mts.depositservice.repository.DepositTypesRepository;
 import ru.mts.depositservice.repository.PercentPaymentTypesRepository;
@@ -34,6 +35,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class DepositService {
 
+    private final DepositProperty depositProperty;                                                // базовая процентная ставка
     private final DepositRepository depositRepository;
     private final AccountClient accountClient;
     private final CustomerClient customerClient;
@@ -41,9 +43,6 @@ public class DepositService {
     private final DepositTypesRepository depositTypesRepository;
     private final SmsConfirmationServiceImpl smsConfirmationService;
     private final PercentPaymentTypesRepository percentPaymentTypesRepository;
-
-    @Value("${app.deposit.base_rate}")
-    private BigDecimal baseRate;                                                // базовая процентная ставка
 
     /**
      * Рассчитывает процентную ставку для вклада.
@@ -55,7 +54,7 @@ public class DepositService {
      */
     public BigDecimal calculateInterestRate(OpenDepositRequest request) {
         BigDecimal rateAdjustment = BigDecimal.valueOf(adjustBaseRate(request));
-        return baseRate.add(rateAdjustment).setScale(2, RoundingMode.HALF_UP);
+        return depositProperty.getBaseRate().add(rateAdjustment).setScale(2, RoundingMode.HALF_UP);
     }
 
     /**
@@ -104,7 +103,7 @@ public class DepositService {
         BigDecimal interestRate = calculateInterestRate(openDepositRequest);
         // Рассчитываем даты начала и окончания договора вклада
         LocalDate startDate = LocalDate.now();
-        LocalDate endDate = deposit.getStartDate().plusMonths(getDepositMonthDuration(openDepositRequest.getDuration()));
+        LocalDate endDate = startDate.plusMonths(getDepositMonthDuration(openDepositRequest.getDuration()));
 
 
         // Открываем вклад с выбранными условиями

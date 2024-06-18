@@ -121,7 +121,7 @@ public class AccountClient {
                     InfoResponse.class
             );
         } catch (HttpClientErrorException e) {
-            if (e.getStatusCode()== HttpStatus.BAD_REQUEST) {
+            if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
                 throw new CustomException(
                         e.getStatusCode().toString(),
                         e.getMessage()

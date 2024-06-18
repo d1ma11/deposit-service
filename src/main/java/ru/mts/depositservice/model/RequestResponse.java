@@ -11,6 +11,6 @@ import java.util.Date;
 @SuperBuilder
 public class RequestResponse {
     private BigDecimal amount;
-    @JsonFormat(pattern="dd-MM-yyyy")
+    @JsonFormat(pattern = "dd-MM-yyyy")
     private Date requestDate;
 }

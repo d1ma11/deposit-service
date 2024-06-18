@@ -26,7 +26,6 @@ public class RequestConfirmationService {
     private static final String REJECTION_REASON = "Недостаточно средств для открытия вклада";
 
     private final AccountClient accountClient;
-    private final RequestService requestService;
     private final DepositService depositService;
     private final DepositRepository depositRepository;
     private final RequestRepository requestRepository;

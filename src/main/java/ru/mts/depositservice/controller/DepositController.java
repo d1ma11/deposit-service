@@ -1,5 +1,6 @@
 package ru.mts.depositservice.controller;
 
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,7 +32,7 @@ public class DepositController {
      * @return Процентная ставка в виде {@code BigDecimal}
      */
     @GetMapping("/check")
-    public ResponseEntity<BigDecimal> checkDepositTerms(@RequestBody OpenDepositRequest request) {
+    public ResponseEntity<BigDecimal> checkDepositTerms(@RequestBody @Valid OpenDepositRequest request) {
         BigDecimal rate = depositService.calculateInterestRate(request);
 
         return ResponseEntity.ok(rate);
@@ -52,7 +53,7 @@ public class DepositController {
      */
     @PostMapping("/open")
     @ResponseStatus(HttpStatus.OK)
-    public void requestForOpeningDeposit(@RequestBody OpenDepositRequest openDepositRequest) {
+    public void requestForOpeningDeposit(@RequestBody @Valid OpenDepositRequest openDepositRequest) {
         requestService.openRequest(openDepositRequest);
     }
 
@@ -123,7 +124,7 @@ public class DepositController {
      * @return Ответ на пополнение вклада
      */
     @PostMapping("/refill/confirm")
-    public ResponseEntity<RequestResponse> refillDepositAccount(@RequestBody RefillDepositRequest refillDepositRequest) {
+    public ResponseEntity<RequestResponse> refillDepositAccount(@RequestBody @Valid RefillDepositRequest refillDepositRequest) {
         RequestResponse response = confirmationService.confirmRefillDeposit(refillDepositRequest);
 
         return new ResponseEntity<>(response, HttpStatus.ACCEPTED);
